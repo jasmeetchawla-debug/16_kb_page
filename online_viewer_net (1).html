@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APK 16KB Checker - Android Compatibility Tool</title>
+    <meta name="description" content="Professional Android 16KB page size compatibility checker. Analyze your APK files for Google Play compliance.">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --success: #059669;
+            --error: #dc2626;
+            --warning: #d97706;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .app-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--text);
+        }
+
+        .version {
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--surface);
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><radialGradient id="a"><stop offset="0" stop-color="%23ffffff" stop-opacity=".1"/><stop offset="1" stop-color="%23ffffff" stop-opacity="0"/></radialGradient></defs><circle cx="500" cy="500" r="500" fill="url(%23a)"/></svg>') center/cover;
+            opacity: 0.1;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #ffffff, #f1f5f9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .deadline-banner {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fef2f2;
+            padding: 1rem 2rem;
+            border-radius: var(--radius);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .content {
+            padding: 2.5rem;
+        }
+
+        /* Warning Section */
+        .warning-section {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border: 1px solid #f59e0b;
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .warning-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #92400e;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .warning-list {
+            color: #78350f;
+            list-style: none;
+            padding: 0;
+        }
+
+        .warning-list li {
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .warning-list li::before {
+            content: "⚠️";
+            position: absolute;
+            left: 0;
+        }
+
+        /* Info Cards */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+        }
+
+        .info-card h3 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Upload Section */
+        .upload-section {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .upload-area {
+            border: 3px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            background: var(--background);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .upload-area:hover::before {
+            left: 100%;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: #eff6ff;
+            transform: translateY(-4px);
+            box-shadow: var(--shadow);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--success);
+            background: #ecfdf5;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.6;
+        }
+
+        .upload-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-hint {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Results */
+        .results {
+            display: none;
+            margin-top: 2rem;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            margin-bottom: 2rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .result-compatible {
+            background: linear-gradient(135deg, var(--success), #047857);
+            color: white;
+        }
+
+        .result-incompatible {
+            background: linear-gradient(135deg, var(--error), #b91c1c);
+            color: white;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--background);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--text);
+            color: white;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .footer-section h3 {
+            margin-bottom: 1rem;
+            color: #f1f5f9;
+        }
+
+        .footer-section p, .footer-section li {
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-section ul {
+            list-style: none;
+        }
+
+        .footer-section a {
+            color: #94a3b8;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-section a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            border-top: 1px solid #374151;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 0 1rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .content {
+                padding: 1.5rem;
+            }
+
+            .upload-area {
+                padding: 2rem 1rem;
+            }
+        }
+
+        /* Security badge */
+        .security-badge {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--success);
+            color: white;
+            padding: 0.75rem;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        /* Additional styles for library analysis */
+        .library-list {
+            background: var(--background);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .library-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .library-item:last-child {
+            border-bottom: none;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .status-compatible {
+            background: #dcfce7;
+            color: var(--success);
+        }
+
+        .status-incompatible {
+            background: #fecaca;
+            color: var(--error);
+        }
+
+        .status-unknown {
+            background: #fef3c7;
+            color: var(--warning);
+        }
+
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: var(--error);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">16K</div>
+                    <div>
+                        <div class="logo-text">APK 16KB Checker</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">by Jasmeet Singh</div>
+                    </div>
+  
+        </header>
+
+        <main class="main">
+            <div class="container">
+                <div class="hero">
+                    <div class="hero-content">
+                        <h1>Android 16KB Compatibility Checker</h1>
+                        <p>APK analysis tool for Google Play compliance. Ensure your Android apps are ready for 16KB page size devices.</p>
+                     
+                    </div>
+                </div>
+
+                <div class="content">
+                    <div class="warning-section">
+                        <div class="warning-title">
+                            🔒 Privacy & Security Notice
+                        </div>
+                        <ul class="warning-list">
+                            <li><strong>100% Client-Side Processing:</strong> Your APK files never leave your device</li>
+                            <li><strong>No Data Collection:</strong> I don't store, track, or analyze your files</li>
+                            <li><strong>No Server Upload:</strong> All analysis happens in your browser</li>
+                            <li><strong>Open Source:</strong> Full transparency - inspect the code yourself</li>
+                        </ul>
+                    </div>
+
+                    <div class="info-grid">
+                        <div class="info-card">
+                            <h3>🎯 What This Checks</h3>
+                            <p>Analyzes native libraries (.so files) in your APK to ensure they have proper 16KB memory page alignment required for Android 15+ devices.</p>
+                        </div>
+                        <div class="info-card">
+                            <h3>⚡ Why It Matters</h3>
+                            <p>Starting November 1st, 2025, Google Play requires all apps targeting Android 15+ to support 16KB page sizes for better performance.</p>
+                        </div>
+                    </div>
+
+                    <div class="upload-section">
+                        <div class="upload-area" id="uploadArea">
+                            <div class="upload-icon">📱</div>
+                            <div class="upload-text">Drop your APK file here or click to browse</div>
+                            <div class="upload-hint">Supports APK files up to 500MB • Secure client-side analysis</div>
+                            <input type="file" id="fileInput" style="display: none;" accept=".apk" />
+                        </div>
+                        <br>
+                        <button class="btn" id="analyzeBtn" disabled>
+                            <span>🔍</span> Analyze APK Compatibility
+                        </button>
+                    </div>
+
+                    <div class="loading" id="loading">
+                        <div class="spinner"></div>
+                        <div><strong>Analyzing your APK file...</strong></div>
+                        <div style="margin-top: 10px; color: var(--text-muted); font-size: 0.9rem;">
+                            Extracting and analyzing native libraries for 16KB compatibility
+                        </div>
+                    </div>
+
+                    <div class="results" id="results">
+                        <div class="result-header" id="resultHeader">
+                            <div id="resultIcon" style="font-size: 2rem;"></div>
+                            <div id="resultText"></div>
+                        </div>
+
+                        <div class="summary-stats" id="summaryStats"></div>
+                        <div id="libraryAnalysis"></div>
+                        <div id="recommendations" style="display: none;"></div>
+                    </div>
+
+                    <div class="error" id="error" style="display: none;"></div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+          
+            <div class="footer-bottom">
+                <p>&copy; 2025 Jasmeet Singh. Built with ❤️ for the Android developer community.</p>
+            </div>
+        </footer>
+    </div>
+
+    <div class="security-badge">
+        🔒 Secure Analysis
+    </div>
+
+    <script>
+        // [Previous JavaScript code remains exactly the same - just updating the library analysis display]
+        // Known problematic libraries
+        const PROBLEMATIC_LIBRARIES = {
+            'libreact_render_componentregistry.so': 'React Native - Update to latest version or apply 16KB patches',
+            'libreactnative.so': 'React Native Core - Update to latest version with 16KB support',
+            'libhermes.so': 'Hermes JavaScript Engine - Update React Native to latest version',
+            'libfbjni.so': 'Facebook JNI - Update React Native to latest version',
+            'libevent_core-2.1.so': 'libevent - Rebuild with 16KB alignment flags',
+            'libevent-2.1.so': 'libevent - Rebuild with 16KB alignment flags',
+            'libevent_extra-2.1.so': 'libevent - Rebuild with 16KB alignment flags',
+            'libsqlite3x.so': 'SQLite Android - Update to version with 16KB support',
+            'libimage_processing_util_jni.so': 'React Native Camera Kit - Apply 16KB patches',
+            'decoder_flac.so': 'ExoPlayer FLAC decoder - Update androidx.media to latest version',
+            'libpdfium-android.so': 'PDFium Android - Library abandoned, find alternative',
+            'libgifimage.so': 'GIF processing library - Check for updates',
+            'libwebp.so': 'WebP library - Update to latest version',
+            'libc++_shared.so': 'C++ Standard Library - Update NDK to r28+',
+            'libfolly_runtime.so': 'Folly Runtime - Update React Native to latest version',
+            'libglog.so': 'Google Logging - Update to version with 16KB support'
+        };
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const error = document.getElementById('error');
+
+        let selectedFile = null;
+
+        // [Include all the previous JavaScript functions here - they remain unchanged]
+        // I'm keeping the JavaScript functionality exactly the same as before
+        // Just updating the display functions to work with the new styling
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelection(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
+
+        analyzeBtn.addEventListener('click', analyzeAPK);
+
+        function handleFileSelection(file) {
+            if (!file.name.endsWith('.apk')) {
+                showError('Please select a valid APK file.');
+                return;
+            }
+
+            if (file.size > 500 * 1024 * 1024) { // 500MB limit
+                showError('APK file is too large. Please select a file smaller than 500MB.');
+                return;
+            }
+
+            selectedFile = file;
+            analyzeBtn.disabled = false;
+            
+            // Update upload area
+            uploadArea.innerHTML = `
+                <div class="upload-icon">✅</div>
+                <div class="upload-text">${file.name}</div>
+                <div class="upload-hint">Size: ${(file.size / 1024 / 1024).toFixed(2)} MB • Ready for analysis</div>
+            `;
+        }
+
+      async function analyzeAPK() {
+            if (!selectedFile) return;
+
+            showLoading(true);
+            hideError();
+            hideResults();
+
+            try {
+                const zip = await JSZip.loadAsync(selectedFile);
+                const analysis = await analyzeLibraries(zip);
+                displayResults(analysis);
+            } catch (err) {
+                console.error('Analysis error:', err);
+                showError('Failed to analyze APK: ' + err.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function analyzeLibraries(zip) {
+            const libraries = [];
+            const architectures = new Set();
+
+            // Find all .so files in lib directory
+            for (const [path, file] of Object.entries(zip.files)) {
+                if (path.startsWith('lib/') && path.endsWith('.so') && !file.dir) {
+                    const pathParts = path.split('/');
+                    const arch = pathParts[1];
+                    const libName = pathParts[pathParts.length - 1];
+                    
+                    architectures.add(arch);
+                    
+                    try {
+                        const content = await file.async('uint8array');
+                        const alignment = analyzeELFAlignment(content);
+                        
+                        libraries.push({
+                            name: libName,
+                            architecture: arch,
+                            path: path,
+                            size: content.length,
+                            alignment: alignment,
+                            isCompatible: alignment.isAligned,
+                            advice: PROBLEMATIC_LIBRARIES[libName] || 'Rebuild with 16KB alignment using NDK r28+ or add -Wl,-z,max-page-size=16384 linker flag'
+                        });
+                    } catch (err) {
+                        libraries.push({
+                            name: libName,
+                            architecture: arch,
+                            path: path,
+                            size: 0,
+                            alignment: { isAligned: null, power: null, error: err.message },
+                            isCompatible: null,
+                            advice: 'Could not analyze - ' + err.message
+                        });
+                    }
+                }
+            }
+
+            const stats = calculateStats(libraries);
+            const overallCompatible = libraries.length === 0 || (stats.incompatible === 0);
+
+            return {
+                libraries,
+                architectures: Array.from(architectures),
+                stats,
+                overallCompatible,
+                hasNativeCode: libraries.length > 0
+            };
+        }
+
+        function analyzeELFAlignment(data) {
+            try {
+                // Check ELF magic number
+                if (data.length < 64 || 
+                    data[0] !== 0x7F || data[1] !== 0x45 || data[2] !== 0x4C || data[3] !== 0x46) {
+                    throw new Error('Not a valid ELF file');
+                }
+
+                // Get architecture (32-bit or 64-bit)
+                const is64bit = data[4] === 2;
+                const isLittleEndian = data[5] === 1;
+
+                // Read program header offset and size
+                const phoffOffset = is64bit ? 32 : 28;
+                const phentOffset = is64bit ? 54 : 42;
+                const phnumOffset = is64bit ? 56 : 44;
+
+                const phoff = readNumber(data, phoffOffset, is64bit ? 8 : 4, isLittleEndian);
+                const phentsize = readNumber(data, phentOffset, 2, isLittleEndian);
+                const phnum = readNumber(data, phnumOffset, 2, isLittleEndian);
+
+                // Find LOAD segments and check alignment
+                let maxAlignment = 0;
+
+                for (let i = 0; i < phnum; i++) {
+                    const phOffset = phoff + (i * phentsize);
+                    
+                    if (phOffset + phentsize > data.length) break;
+
+                    // Read program header type
+                    const pType = readNumber(data, phOffset, 4, isLittleEndian);
+                    
+                    // PT_LOAD = 1
+                    if (pType === 1) {
+                        // Read alignment field
+                        const alignOffset = phOffset + (is64bit ? 48 : 28);
+                        const alignment = readNumber(data, alignOffset, is64bit ? 8 : 4, isLittleEndian);
+                        
+                        if (alignment > maxAlignment) {
+                            maxAlignment = alignment;
+                        }
+                    }
+                }
+
+                // Calculate power of 2
+                let power = 0;
+                let temp = maxAlignment;
+                while (temp > 1) {
+                    temp = temp >> 1;
+                    power++;
+                }
+
+                return {
+                    isAligned: power >= 14, // 2^14 = 16384 = 16KB
+                    power: power,
+                    alignment: maxAlignment,
+                    error: null
+                };
+            } catch (err) {
+                return {
+                    isAligned: null,
+                    power: null,
+                    alignment: null,
+                    error: err.message
+                };
+            }
+        }
+
+        function readNumber(data, offset, size, littleEndian) {
+            let result = 0;
+            if (littleEndian) {
+                for (let i = 0; i < size; i++) {
+                    if (offset + i >= data.length) break;
+                    result |= (data[offset + i] << (i * 8));
+                }
+            } else {
+                for (let i = 0; i < size; i++) {
+                    if (offset + i >= data.length) break;
+                    result = (result << 8) | data[offset + i];
+                }
+            }
+            return result;
+        }
+
+        function calculateStats(libraries) {
+            const stats = {
+                total: libraries.length,
+                compatible: 0,
+                incompatible: 0,
+                unknown: 0
+            };
+
+            libraries.forEach(lib => {
+                if (lib.isCompatible === true) {
+                    stats.compatible++;
+                } else if (lib.isCompatible === false) {
+                    stats.incompatible++;
+                } else {
+                    stats.unknown++;
+                }
+            });
+
+            return stats;
+        }
+
+        function displayResults(analysis) {
+            const { libraries, architectures, stats, overallCompatible, hasNativeCode } = analysis;
+
+            // Show result header
+            const resultHeader = document.getElementById('resultHeader');
+            const resultIcon = document.getElementById('resultIcon');
+            const resultText = document.getElementById('resultText');
+
+            if (!hasNativeCode) {
+                resultHeader.className = 'result-header result-compatible';
+                resultIcon.textContent = '✅';
+                resultText.textContent = 'Your app is 16KB compatible!';
+            } else if (overallCompatible) {
+                resultHeader.className = 'result-header result-compatible';
+                resultIcon.textContent = '✅';
+                resultText.textContent = 'Your app is 16KB compatible!';
+            } else {
+                resultHeader.className = 'result-header result-incompatible';
+                resultIcon.textContent = '❌';
+                resultText.textContent = 'Your app needs updates for 16KB compatibility';
+            }
+
+            // Show summary stats
+            const summaryStats = document.getElementById('summaryStats');
+            if (hasNativeCode) {
+                summaryStats.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.total}</div>
+                        <div class="stat-label">Total Libraries</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.compatible}</div>
+                        <div class="stat-label">Compatible</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.incompatible}</div>
+                        <div class="stat-label">Need Updates</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${architectures.length}</div>
+                        <div class="stat-label">Architectures</div>
+                    </div>
+                `;
+            } else {
+                summaryStats.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Native Libraries</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">✅</div>
+                        <div class="stat-label">Status</div>
+                    </div>
+                `;
+            }
+
+            // Show library analysis
+            const libraryAnalysis = document.getElementById('libraryAnalysis');
+            if (hasNativeCode) {
+                const groupedLibraries = {};
+                libraries.forEach(lib => {
+                    if (!groupedLibraries[lib.architecture]) {
+                        groupedLibraries[lib.architecture] = [];
+                    }
+                    groupedLibraries[lib.architecture].push(lib);
+                });
+
+                let analysisHTML = '<div class="section-title">📚 Library Analysis</div>';
+                
+                for (const [arch, libs] of Object.entries(groupedLibraries)) {
+                    analysisHTML += `
+                        <div class="library-list">
+                            <h4 style="margin-bottom: 15px; color: #1e293b;">Architecture: ${arch}</h4>
+                    `;
+                    
+                    libs.forEach(lib => {
+                        let statusClass, statusText, statusIcon;
+                        if (lib.isCompatible === true) {
+                            statusClass = 'status-compatible';
+                            statusText = '16KB Compatible';
+                            statusIcon = '✅';
+                        } else if (lib.isCompatible === false) {
+                            statusClass = 'status-incompatible';
+                            statusText = '4KB Only';
+                            statusIcon = '❌';
+                        } else {
+                            statusClass = 'status-unknown';
+                            statusText = 'Unknown';
+                            statusIcon = '⚠️';
+                        }
+
+                        analysisHTML += `
+                            <div class="library-item">
+                                <div class="library-info">
+                                    <div class="library-name">${lib.name}</div>
+                                    ${lib.alignment.alignment ? `<small style="color: #64748b;">Alignment: 2^${lib.alignment.power} (${lib.alignment.alignment})</small>` : ''}
+                                </div>
+                                <div class="status ${statusClass}">
+                                    ${statusIcon} ${statusText}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    analysisHTML += '</div>';
+                }
+                
+                libraryAnalysis.innerHTML = analysisHTML;
+            } else {
+                libraryAnalysis.innerHTML = `
+                    <div class="section-title">📚 Library Analysis</div>
+                    <div class="library-list">
+                        <div style="text-align: center; padding: 40px; color: #64748b;">
+                            <div style="font-size: 3rem; margin-bottom: 20px;">🎉</div>
+                            <div style="font-size: 1.2rem; margin-bottom: 10px;">No native libraries found!</div>
+                            <div>Your app uses only Java/Kotlin code and is automatically 16KB compatible.</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+
+            showResults(true);
+        }
+
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+        }
+
+        function showResults(show) {
+            results.style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            error.textContent = message;
+            error.style.display = 'block';
+        }
+
+        function hideError() {
+            error.style.display = 'none';
+        }
+
+        function hideResults() {
+            results.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
